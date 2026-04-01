@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIT Illegal Commercial Properties Dashboard</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      overflow: hidden;
+    }
+
+    .dashboard-header {
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      padding: 18px 28px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      z-index: 10;
+      position: relative;
+    }
+
+    .dashboard-header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    .dashboard-header h1 i {
+      margin-right: 14px;
+      color: #ffd700;
+    }
+
+    .dashboard-header p {
+      margin: 8px 0 0;
+      opacity: 0.92;
+      font-size: 14px;
+    }
+
+    .main-container {
+      display: flex;
+      height: calc(100vh - 92px);
+    }
+
+    .sidebar {
+      width: 430px;
+      background: white;
+      box-shadow: 2px 0 12px rgba(0,0,0,0.12);
+      overflow-y: auto;
+      z-index: 5;
+    }
+
+    .sidebar-section {
+      padding: 20px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .sidebar-section h3 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #2c3e50;
+      font-weight: 600;
+    }
+
+    .sidebar-section h3 i {
+      margin-right: 10px;
+      color: #3498db;
+    }
+
+    .file-actions, .filter-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .stat-card {
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .stat-card.blue { background: linear-gradient(135deg, #3498db, #2980b9); }
+    .stat-card.green { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+    .stat-card.orange { background: linear-gradient(135deg, #f39c12, #d68910); }
+    .stat-card.red { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    .stat-card.purple { background: linear-gradient(135deg, #9b59b6, #7d3c98); }
+
+    .stat-number {
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.95;
+      margin-top: 5px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+      padding: 6px 8px;
+      border-radius: 6px;
+    }
+
+    .legend-item:hover { background: #f3f6fb; }
+
+    .legend-item.active {
+      background: #eaf4ff;
+      outline: 1px solid #b8d8ff;
+    }
+
+    .legend-color {
+      width: 30px;
+      height: 18px;
+      border-radius: 4px;
+      margin-right: 10px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .legend-label { font-size: 13px; flex: 1; }
+    .legend-count { font-size: 12px; font-weight: bold; color: #666; }
+
+    .financial-summary {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 15px;
+    }
+
+    .financial-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 10px;
+      background: white;
+      border-radius: 6px;
+    }
+
+    .financial-label {
+      font-weight: 500;
+      color: #555;
+    }
+
+    .financial-amount {
+      font-weight: bold;
+      color: #2c3e50;
+    }
+
+    .financial-amount.total {
+      color: #27ae60;
+      font-size: 18px;
+    }
+
+    .property-list {
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .property-item {
+      padding: 12px;
+      margin-bottom: 8px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+      border-left: 4px solid transparent;
+    }
+
+    .property-item:hover {
+      background: #eaf4ff;
+      transform: translateX(4px);
+    }
+
+    .property-item.active {
+      border-left-color: #3498db;
+      background: #eef7ff;
+    }
+
+    .property-plot {
+      font-weight: bold;
+      color: #2c3e50;
+      font-size: 14px;
+    }
+
+    .property-details {
+      font-size: 11px;
+      color: #7f8c8d;
+      margin-top: 5px;
+    }
+
+    .property-status {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-top: 6px;
+      color: white;
+    }
+
+    .map-container { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    .custom-popup {
+      min-width: 300px;
+      max-width: 420px;
+    }
+
+    .popup-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #2c3e50;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #3498db;
+    }
+
+    .popup-detail {
+      margin: 8px 0;
+      font-size: 13px;
+    }
+
+    .popup-detail strong {
+      color: #3498db;
+      display: inline-block;
+      width: 120px;
+    }
+
+    .popup-image {
+      max-width: 100%;
+      max-height: 150px;
+      margin-top: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .financial-details {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .modal-image {
+      max-width: 100%;
+      max-height: 80vh;
+    }
+
+    .note-small, .status-note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    .status-note {
+      font-size: 11px;
+      color: #888;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+  <div class="dashboard-header">
+    <h1><i class="fas fa-building"></i> AIT Illegal Commercial Properties Dashboard</h1>
+    <p><i class="fas fa-map-marker-alt"></i> CSV + GeoJSON Mapping | Financial Analysis | Status Tracking</p>
+  </div>
+
+  <div class="main-container">
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <h3><i class="fas fa-folder-open"></i> Load Files</h3>
+        <div class="file-actions">
+          <input id="csvFile" type="file" accept=".csv" class="form-control" />
+          <input id="jsonFile" type="file" accept=".json,.geojson" class="form-control" />
+          <button class="btn btn-primary" id="loadBtn"><i class="fas fa-upload"></i> Load Dashboard Data</button>
+          <button class="btn btn-outline-secondary" id="resetBtn"><i class="fas fa-undo"></i> Reset Filters</button>
+        </div>
+        <div class="note-small">Select your <strong>data.csv</strong> and <strong>JSONN.json</strong>, then click Load Dashboard Data.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3><i class="fas fa-filter"></i> Filters</h3>
+        <div class="filter-grid">
+          <input id="searchInput" class="form-control" placeholder="Search block, plot, landuse..." />
+          <select id="blockFilter" class="form-select">
+            <option value="">All Blocks</option>
+          </select>
+          <select id="landuseFilter" class="form-select">
+            <option value="">All Landuse</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3><i class="fas fa-chart-bar"></i> Statistics</h3>
+        <div class="stats-grid">
+          <div class="stat-card blue">
+            <div class="stat-number" id="totalPlots">0</div>
+            <div class="stat-label">Matched Plots</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-number" id="totalArea">0</div>
+            <div class="stat-label">Total Area</div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-number" id="plotsWithImages">0</div>
+            <div class="stat-label">Plots with Images</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-number" id="plotsWithNotices">0</div>
+            <div class="stat-label">Rows with Notices</div>
+          </div>
+          <div class="stat-card purple" style="grid-column:1/-1;">
+            <div class="stat-number" id="totalJsonPlots">0</div>
+            <div class="stat-label">Total GeoJSON Plots</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3><i class="fas fa-tag"></i> Status Legend <small style="font-size:11px;">(Click to filter)</small></h3>
+        <div class="legend" id="legend"></div>
+        <div class="status-note">Legend counts use matched CSV records only.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3><i class="fas fa-rupee-sign"></i> Financial Summary</h3>
+        <div class="financial-summary">
+          <div class="financial-item">
+            <span class="financial-label">Total Amount (PKR):</span>
+            <span class="financial-amount total" id="totalAmount">Rs 0</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Paid Amount (PKR):</span>
+            <span class="financial-amount" id="paidAmount">Rs 0</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Partial Payment Amount (PKR):</span>
+            <span class="financial-amount" id="partialAmount">Rs 0</span>
+          </div>
+          <div class="financial-item">
+            <span class="financial-label">Pending Amount (PKR):</span>
+            <span class="financial-amount" id="pendingAmount">Rs 0</span>
+          </div>
+        </div>
+        <canvas id="financialChart" style="margin-top:15px; max-height:220px;"></canvas>
+      </div>
+
+      <div class="sidebar-section">
+        <h3><i class="fas fa-list"></i> Property List <small style="font-size:11px;">(Click to locate)</small></h3>
+        <div class="property-list" id="propertyList">
+          <div class="text-center text-muted p-3">Load files to see properties.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Property Image</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <img id="modalImage" class="modal-image" alt="Property Image">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const map = L.map("map").setView([31.5204, 74.3587], 13);
+
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap contributors &copy; CartoDB",
+      subdomains: "abcd",
+      maxZoom: 20
+    }).addTo(map);
+
+    let rawCsvRows = [];
+    let geoJsonData = null;
+    let geoJsonLayer = null;
+    let financialChart = null;
+    let currentStatusFilter = null;
+    let joinedFeatures = [];
+    let activePropertyKey = null;
+    let hasInitialFit = false;
+    let layerByKey = new Map();
+
+    const statusColors = {
+      "NOT PAID": "#e74c3c",
+      "PARTIAL PAYMENT": "#3498db",
+      "PAID": "#2ecc71",
+      "NOT UPDATED": "#9b59b6",
+      "UNKNOWN": "#bdc3c7"
+    };
+
+    function safeText(v) {
+      if (v === null || v === undefined) return "";
+      const s = String(v).trim();
+      if (["none", "null", "undefined", "#n/a", "nan"].includes(s.toLowerCase())) return "";
+      return s;
+    }
+
+    function asNumber(v) {
+      if (v === null || v === undefined || v === "") return 0;
+      if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+      const s = String(v).replace(/rs|,|\s/gi, "").trim();
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatCurrency(amount) {
+      if (amount === null || amount === undefined) return "No matched record";
+      return "Rs " + Math.round(asNumber(amount)).toLocaleString("en-PK");
+    }
+
+    function normalizeBlock(v) {
+      return safeText(v).toLowerCase().replace(/\s+/g, " ").trim();
+    }
+
+    function normalizePlot(v) {
+      return safeText(v)
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/^plot/, "")
+        .replace(/^no/, "")
+        .trim();
+    }
+
+    function makeKey(block, plot) {
+      const b = normalizeBlock(block);
+      const p = normalizePlot(plot);
+      return b && p ? `${b}||${p}` : "";
+    }
+
+    function makeLooseKey(block, plot) {
+      const b = normalizeBlock(block);
+      const p = normalizePlot(plot).replace(/[^a-z0-9]/g, "");
+      return b && p ? `${b}||${p}` : "";
+    }
+
+    function makeJsonStyleKey(block, plot) {
+      return `${safeText(plot)}${safeText(block)}`.replace(/\s+/g, "");
+    }
+
+    function mapStatus(v) {
+      const s = safeText(v).toUpperCase().replace(/\s+/g, " ");
+      if (s.includes("NOT PAID")) return "NOT PAID";
+      if (s.includes("PARTIAL")) return "PARTIAL PAYMENT";
+      if (s === "PAID") return "PAID";
+      if (s.includes("NOT UPDATED")) return "NOT UPDATED";
+      return "UNKNOWN";
+    }
+
+    function getFeatureBlock(props) {
+      return safeText(props.Block || props.block || props.Block_1);
+    }
+
+    function getFeaturePlot(props) {
+      return safeText(props.PlotNo || props.plotno || props.PlotNo_1 || props.Plot || props.plot);
+    }
+
+    function getFeatureLanduse(props) {
+      return safeText(props.Landuse || props.landuse || props.Landuse_1 || props.LANDUSE_Z2);
+    }
+
+    function getFeatureArea(props) {
+      return asNumber(props.Area_K_1 || props.Area_M_1 || props.Area_M || props.Area_SQM || 0);
+    }
+
+    function getFeaturePicture(props) {
+      return safeText(props.PICTURES || props.picture || props.image);
+    }
+
+    async function parseCSV(file) {
+      const buffer = await file.arrayBuffer();
+
+      let workbook;
+      try {
+        workbook = XLSX.read(buffer, { type: "array", codepage: 1252 });
+      } catch (e) {
+        workbook = XLSX.read(buffer, { type: "array" });
+      }
+
+      const ws = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      return rows
+        .map((row) => {
+          const record = {
+            fid: safeText(row["FID"]),
+            town_name: safeText(row["Town_Name"]),
+            phase: safeText(row["Phase"]),
+            block: safeText(row["Block"]),
+            plot: safeText(row["PlotNo"]),
+            landuse: safeText(row["Landuse"]),
+            area_k: asNumber(row["Area_K"]),
+            area_m: asNumber(row["Area_M"]),
+            ground_landuse: safeText(row["LANDUSE_Z2"]),
+            notice_status: safeText(row["NOTICE STATUS_Z2"]),
+            total: row["Total Amount"] === "" ? null : asNumber(row["Total Amount"]),
+            received: row["Received"] === "" ? null : asNumber(row["Received"]),
+            pending: row["Pending"] === "" ? null : asNumber(row["Pending"]),
+            status_on_bpr: mapStatus(row["PT-STATUS_Z2"]),
+            plot_size: safeText(row["Plot Size"]),
+            latitude: asNumber(row["LATITUDE"]),
+            longitude: asNumber(row["LONGITUDE"]),
+            csvKey: safeText(row["KEY"]),
+            picture: safeText(row["PICTURES"])
+          };
+
+          record.key = makeKey(record.block, record.plot);
+          record.looseKey = makeLooseKey(record.block, record.plot);
+          record.jsonKey = makeJsonStyleKey(record.block, record.plot);
+
+          return record;
+        })
+        .filter(r => r.block || r.plot || r.csvKey);
+    }
+
+    async function parseGeoJSON(file) {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if (!data || data.type !== "FeatureCollection" || !Array.isArray(data.features)) {
+        throw new Error("Invalid GeoJSON/JSON file.");
+      }
+
+      return data;
+    }
+
+    function buildJoinedData() {
+      const csvKeyMap = new Map();
+      const blockPlotMap = new Map();
+      const looseKeyMap = new Map();
+      const jsonStyleKeyMap = new Map();
+
+      rawCsvRows.forEach(r => {
+        if (r.csvKey && !csvKeyMap.has(r.csvKey)) csvKeyMap.set(r.csvKey, r);
+        if (r.key && !blockPlotMap.has(r.key)) blockPlotMap.set(r.key, r);
+        if (r.looseKey && !looseKeyMap.has(r.looseKey)) looseKeyMap.set(r.looseKey, r);
+        if (r.jsonKey && !jsonStyleKeyMap.has(r.jsonKey)) jsonStyleKeyMap.set(r.jsonKey, r);
+      });
+
+      joinedFeatures = geoJsonData.features.map((feature, idx) => {
+        const props = feature.properties || {};
+        const block = getFeatureBlock(props);
+        const plot = getFeaturePlot(props);
+
+        const featureKey = safeText(props.KEY);
+        const blockPlotKey = makeKey(block, plot);
+        const looseKey = makeLooseKey(block, plot);
+        const jsonStyleKey = makeJsonStyleKey(block, plot);
+
+        let csv = null;
+        if (featureKey && csvKeyMap.has(featureKey)) csv = csvKeyMap.get(featureKey);
+        if (!csv && blockPlotMap.has(blockPlotKey)) csv = blockPlotMap.get(blockPlotKey);
+        if (!csv && looseKeyMap.has(looseKey)) csv = looseKeyMap.get(looseKey);
+        if (!csv && jsonStyleKeyMap.has(jsonStyleKey)) csv = jsonStyleKeyMap.get(jsonStyleKey);
+
+        const jsonStatus = mapStatus(props.PT_STATUS_);
+        const jsonTotal = safeText(props.TOTAL_AMOU) ? asNumber(props.TOTAL_AMOU) : null;
+        const jsonPaid = safeText(props.AMOUNT_REC) ? asNumber(props.AMOUNT_REC) : null;
+        const jsonPending = safeText(props.PENDING_AM) ? asNumber(props.PENDING_AM) : null;
+
+        const matched = !!csv;
+        const total = matched ? csv.total : jsonTotal;
+        const paid = matched ? csv.received : jsonPaid;
+        const pending = matched ? csv.pending : jsonPending;
+        const status = matched ? csv.status_on_bpr : jsonStatus;
+
+        const joined = {
+          feature,
+          mapKey: featureKey || looseKey || blockPlotKey || `feature_${idx}`,
+          block,
+          plot,
+          matched,
+          fid: csv?.fid || safeText(props.FID),
+          landuse: csv?.landuse || getFeatureLanduse(props),
+          notice_status: csv?.notice_status || safeText(props.NOTICE_STA),
+          status,
+          total,
+          paid,
+          pending,
+          area: matched ? (csv.area_k || csv.area_m) : getFeatureArea(props),
+          picture: csv?.picture || getFeaturePicture(props),
+          scheme: csv?.town_name || safeText(props.Town_Name || props.Town_Nam_1 || "AIT"),
+          phase: csv?.phase || safeText(props.Phase || props.Phase_1),
+          groundStatus: csv?.ground_landuse || safeText(props.LANDUSE_Z2 || ""),
+          plotSize: csv?.plot_size || safeText(props.Plot_Siz_1 || props.Plot_Size),
+          latitude: matched ? csv.latitude : asNumber(props.LATITUDE_1 || props.LATITUDE),
+          longitude: matched ? csv.longitude : asNumber(props.LONGITUD_1 || props.LONGITUDE),
+          hasFinancials: total !== null || paid !== null || pending !== null
+        };
+
+        feature.joinedData = joined;
+        return joined;
+      });
+    }
+
+    function getFilteredData() {
+      const blockVal = document.getElementById("blockFilter").value;
+      const landuseVal = document.getElementById("landuseFilter").value;
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+
+      return joinedFeatures.filter(item => {
+        if (!item.matched) return false;
+        if (currentStatusFilter && item.status !== currentStatusFilter) return false;
+        if (blockVal && item.block !== blockVal) return false;
+        if (landuseVal && item.landuse !== landuseVal) return false;
+
+        if (q) {
+          const hay = [
+            item.block, item.plot, item.landuse, item.notice_status, item.status,
+            item.scheme, item.groundStatus, item.phase
+          ].join(" ").toLowerCase();
+
+          if (!hay.includes(q)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function getMapData() {
+      const blockVal = document.getElementById("blockFilter").value;
+      const landuseVal = document.getElementById("landuseFilter").value;
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+
+      return joinedFeatures.filter(item => {
+        if (currentStatusFilter && item.status !== currentStatusFilter && item.matched) return false;
+        if (blockVal && item.block !== blockVal) return false;
+        if (landuseVal && item.landuse !== landuseVal) return false;
+
+        if (q) {
+          const hay = [
+            item.block, item.plot, item.landuse, item.notice_status, item.status,
+            item.scheme, item.groundStatus, item.phase
+          ].join(" ").toLowerCase();
+
+          if (!hay.includes(q)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function createPopupContent(data) {
+      const safeImg = data.picture ? data.picture.replace(/'/g, "\\'") : "";
+
+      const pictureHtml = data.picture
+        ? `
+          <div class="popup-detail"><strong>Image:</strong></div>
+          <img
+            src="${data.picture}"
+            class="popup-image"
+            onclick="showImageModal('${safeImg}')"
+            style="cursor:pointer;"
+            alt="Property Image"
+            onerror="this.style.display='none'"
+          >
+        `
+        : `<div class="popup-detail text-muted"><em><i class="fas fa-image"></i> No image available</em></div>`;
+
+      const financialHtml = data.hasFinancials
+        ? `
+          <div class="financial-details">
+            <div class="popup-detail"><strong>Total Amount:</strong> ${formatCurrency(data.total)}</div>
+            <div class="popup-detail"><strong>Paid Amount:</strong> ${formatCurrency(data.paid)}</div>
+            <div class="popup-detail"><strong>Pending Amount:</strong> ${formatCurrency(data.pending)}</div>
+          </div>
+        `
+        : `
+          <div class="financial-details">
+            <div class="popup-detail"><strong>Total Amount:</strong> No financial record</div>
+            <div class="popup-detail"><strong>Paid Amount:</strong> No financial record</div>
+            <div class="popup-detail"><strong>Pending Amount:</strong> No financial record</div>
+          </div>
+        `;
+
+      return `
+        <div class="custom-popup">
+          <div class="popup-title">
+            <i class="fas fa-map-marker-alt"></i> ${data.block || "-"} - Plot #${data.plot || "-"}
+          </div>
+
+          <div class="popup-detail"><strong>Block:</strong> ${data.block || "N/A"}</div>
+          <div class="popup-detail"><strong>Plot:</strong> ${data.plot || "N/A"}</div>
+          <div class="popup-detail"><strong>Land Use:</strong> ${data.landuse || "N/A"}</div>
+          <div class="popup-detail"><strong>Ground Use:</strong> ${data.groundStatus || "N/A"}</div>
+          <div class="popup-detail"><strong>Scheme:</strong> ${data.scheme || "AIT"}</div>
+          <div class="popup-detail"><strong>Phase:</strong> ${data.phase || "N/A"}</div>
+          <div class="popup-detail"><strong>Notice:</strong> ${data.notice_status || "N/A"}</div>
+          <div class="popup-detail"><strong>Status:</strong> <span style="color:${statusColors[data.status] || "#666"}; font-weight:bold;">${data.status}</span></div>
+          <div class="popup-detail"><strong>Plot Size ID:</strong> ${data.plotSize || "N/A"}</div>
+          <div class="popup-detail"><strong>Matched:</strong> ${data.matched ? "CSV" : (data.hasFinancials ? "JSON" : "No")}</div>
+
+          ${financialHtml}
+          ${pictureHtml}
+        </div>
+      `;
+    }
+
+    function styleForFeature(data, visible) {
+      const isActive = activePropertyKey && activePropertyKey === data.mapKey;
+
+      if (!visible) {
+        return {
+          color: "#d6dde3",
+          weight: 1,
+          fillColor: "#eef2f5",
+          fillOpacity: 0.05,
+          opacity: 0.08
+        };
+      }
+
+      if (!data.hasFinancials) {
+        return {
+          color: "#b0bec5",
+          weight: isActive ? 3 : 1,
+          fillColor: "#dfe6e9",
+          fillOpacity: isActive ? 0.55 : 0.35,
+          opacity: 0.45
+        };
+      }
+
+      return {
+        color: isActive ? "#0d47a1" : "#2c7be5",
+        weight: isActive ? 3 : 1.5,
+        fillColor: statusColors[data.status] || "#bdc3c7",
+        fillOpacity: isActive ? 0.9 : 0.7,
+        opacity: 1
+      };
+    }
+
+    function renderMap(keepView = true) {
+      const mapData = getMapData();
+      const allowedKeys = new Set(mapData.map(x => x.mapKey));
+      layerByKey = new Map();
+
+      if (geoJsonLayer) map.removeLayer(geoJsonLayer);
+
+      geoJsonLayer = L.geoJSON(geoJsonData, {
+        style: (feature) => {
+          const data = feature.joinedData;
+          return styleForFeature(data, allowedKeys.has(data.mapKey));
+        },
+        onEachFeature: (feature, layer) => {
+          const data = feature.joinedData;
+          layerByKey.set(data.mapKey, layer);
+          layer.bindPopup(createPopupContent(data));
+
+          layer.on("click", () => {
+            activePropertyKey = data.mapKey;
+            updatePropertyList();
+            geoJsonLayer.eachLayer(l => {
+              const d = l.feature.joinedData;
+              l.setStyle(styleForFeature(d, allowedKeys.has(d.mapKey)));
+            });
+            layer.openPopup();
+          });
+        }
+      }).addTo(map);
+
+      if (!hasInitialFit || !keepView) {
+        const b = geoJsonLayer.getBounds();
+        if (b.isValid()) {
+          map.fitBounds(b);
+          hasInitialFit = true;
+        }
+      }
+    }
+
+    function updateLegend() {
+      const filtered = getFilteredData();
+      const counts = {};
+      Object.keys(statusColors).forEach(k => counts[k] = 0);
+
+      filtered.forEach(item => {
+        counts[item.status] = (counts[item.status] || 0) + 1;
+      });
+
+      const legendDiv = document.getElementById("legend");
+      legendDiv.innerHTML = "";
+
+      Object.keys(statusColors).forEach(status => {
+        const item = document.createElement("div");
+        item.className = "legend-item" + (currentStatusFilter === status ? " active" : "");
+        item.innerHTML = `
+          <div class="legend-color" style="background:${statusColors[status]}"></div>
+          <span class="legend-label">${status}</span>
+          <span class="legend-count">${counts[status] || 0}</span>
+        `;
+        item.onclick = () => {
+          currentStatusFilter = currentStatusFilter === status ? null : status;
+          activePropertyKey = null;
+          refreshDashboard(false);
+        };
+        legendDiv.appendChild(item);
+      });
+    }
+
+    function updateStats() {
+      const filtered = getFilteredData();
+
+      const totalArea = filtered.reduce((s, x) => s + asNumber(x.area), 0);
+      const totalAmount = filtered.reduce((s, x) => s + asNumber(x.total), 0);
+
+      const paidAmount = filtered
+        .filter(x => x.status === "PAID")
+        .reduce((s, x) => s + asNumber(x.paid), 0);
+
+      const partialAmount = filtered
+        .filter(x => x.status === "PARTIAL PAYMENT")
+        .reduce((s, x) => s + asNumber(x.paid), 0);
+
+      const pendingAmount = filtered.reduce((s, x) => s + asNumber(x.pending), 0);
+      const images = filtered.filter(x => !!x.picture).length;
+      const notices = filtered.filter(x => !!x.notice_status).length;
+
+      document.getElementById("totalPlots").textContent = filtered.length;
+      document.getElementById("totalJsonPlots").textContent = geoJsonData.features.length;
+      document.getElementById("totalArea").textContent = totalArea.toFixed(2);
+      document.getElementById("plotsWithImages").textContent = images;
+      document.getElementById("plotsWithNotices").textContent = notices;
+
+      document.getElementById("totalAmount").textContent = formatCurrency(totalAmount);
+      document.getElementById("paidAmount").textContent = formatCurrency(paidAmount);
+      document.getElementById("partialAmount").textContent = formatCurrency(partialAmount);
+      document.getElementById("pendingAmount").textContent = formatCurrency(pendingAmount);
+
+      updateFinancialChart(paidAmount, partialAmount, pendingAmount);
+    }
+
+    function updateFinancialChart(paid, partial, pending) {
+      const ctx = document.getElementById("financialChart").getContext("2d");
+      if (financialChart) financialChart.destroy();
+
+      financialChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: ["Paid Amount", "Partial Payment", "Pending Amount"],
+          datasets: [{
+            data: [paid, partial, pending],
+            backgroundColor: ["#2ecc71", "#3498db", "#e74c3c"],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "bottom" }
+          }
+        }
+      });
+    }
+
+    function updatePropertyList() {
+      const filtered = getFilteredData().slice().sort((a, b) => {
+        return normalizePlot(a.plot).localeCompare(normalizePlot(b.plot), undefined, {
+          numeric: true,
+          sensitivity: "base"
+        });
+      });
+
+      const listDiv = document.getElementById("propertyList");
+      listDiv.innerHTML = "";
+
+      if (!filtered.length) {
+        listDiv.innerHTML = `<div class="text-center text-muted p-3">No matched properties found.</div>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "property-item" + (activePropertyKey === item.mapKey ? " active" : "");
+        div.innerHTML = `
+          <div class="property-plot">
+            <i class="fas fa-draw-polygon"></i> ${item.block || "-"} - Plot #${item.plot || "-"}
+            <div class="property-status" style="background:${statusColors[item.status] || "#999"}">${item.status}</div>
+          </div>
+          <div class="property-details">
+            Landuse: ${item.landuse || "N/A"} | Pending: ${formatCurrency(item.pending)}
+          </div>
+        `;
+
+        div.onclick = () => {
+          activePropertyKey = item.mapKey;
+          updatePropertyList();
+
+          const layer = layerByKey.get(item.mapKey);
+          if (layer) {
+            const b = layer.getBounds();
+            if (b.isValid()) {
+              map.flyToBounds(b, { duration: 1.2, maxZoom: 19 });
+            }
+            geoJsonLayer.eachLayer(l => {
+              const d = l.feature.joinedData;
+              const visible = getMapData().some(x => x.mapKey === d.mapKey);
+              l.setStyle(styleForFeature(d, visible));
+            });
+            setTimeout(() => layer.openPopup(), 500);
+          }
+        };
+
+        listDiv.appendChild(div);
+      });
+    }
+
+    function populateFilters() {
+      const blockSelect = document.getElementById("blockFilter");
+      const landuseSelect = document.getElementById("landuseFilter");
+
+      const blocks = [...new Set(joinedFeatures.filter(x => x.matched).map(x => x.block).filter(Boolean))].sort();
+      const landuses = [...new Set(joinedFeatures.filter(x => x.matched).map(x => x.landuse).filter(Boolean))].sort();
+
+      blockSelect.innerHTML = `<option value="">All Blocks</option>` + blocks.map(v => `<option value="${v}">${v}</option>`).join("");
+      landuseSelect.innerHTML = `<option value="">All Landuse</option>` + landuses.map(v => `<option value="${v}">${v}</option>`).join("");
+    }
+
+    function refreshDashboard(keepView = true) {
+      updateLegend();
+      updateStats();
+      updatePropertyList();
+      renderMap(keepView);
+    }
+
+    function resetFilters() {
+      currentStatusFilter = null;
+      activePropertyKey = null;
+      document.getElementById("blockFilter").value = "";
+      document.getElementById("landuseFilter").value = "";
+      document.getElementById("searchInput").value = "";
+      refreshDashboard(false);
+    }
+
+    function showImageModal(imgUrl) {
+      const modal = new bootstrap.Modal(document.getElementById("imageModal"));
+      document.getElementById("modalImage").src = imgUrl;
+      modal.show();
+    }
+
+    document.getElementById("loadBtn").addEventListener("click", async () => {
+      try {
+        const csvFile = document.getElementById("csvFile").files[0];
+        const jsonFile = document.getElementById("jsonFile").files[0];
+
+        if (!csvFile || !jsonFile) {
+          alert("Please select both CSV file and JSON file.");
+          return;
+        }
+
+        rawCsvRows = await parseCSV(csvFile);
+        geoJsonData = await parseGeoJSON(jsonFile);
+
+        buildJoinedData();
+        populateFilters();
+        activePropertyKey = null;
+        hasInitialFit = false;
+        refreshDashboard(false);
+
+      } catch (err) {
+        console.error(err);
+        alert("Error loading files: " + err.message);
+      }
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", resetFilters);
+    document.getElementById("blockFilter").addEventListener("change", () => { activePropertyKey = null; refreshDashboard(false); });
+    document.getElementById("landuseFilter").addEventListener("change", () => { activePropertyKey = null; refreshDashboard(false); });
+    document.getElementById("searchInput").addEventListener("input", () => { activePropertyKey = null; refreshDashboard(false); });
+
+    window.showImageModal = showImageModal;
+  </script>
+</body>
+</html>
