@@ -476,17 +476,17 @@
     function makeKey(block, plot) {
       const b = normalizeBlock(block);
       const p = normalizePlot(plot);
-      return b && p ? `${b}||${p}` : "";
+      return b && p ? ${b}||${p} : "";
     }
 
     function makeLooseKey(block, plot) {
       const b = normalizeBlock(block);
       const p = normalizePlot(plot).replace(/[^a-z0-9]/g, "");
-      return b && p ? `${b}||${p}` : "";
+      return b && p ? ${b}||${p} : "";
     }
 
     function makeJsonStyleKey(block, plot) {
-      return `${safeText(plot)}${safeText(block)}`.replace(/\s+/g, "");
+      return ${safeText(plot)}${safeText(block)}.replace(/\s+/g, "");
     }
 
     function mapStatus(v) {
@@ -598,7 +598,7 @@
 
         const joined = {
           feature,
-          mapKey: featureKey || looseKey || blockPlotKey || `feature_${idx}`,
+          mapKey: featureKey || looseKey || blockPlotKey || feature_${idx},
           block,
           plot,
           matched,
@@ -687,7 +687,7 @@
             onerror="this.style.display='none'"
           >
         `
-        : `<div class="popup-detail text-muted"><em><i class="fas fa-image"></i> No image available</em></div>`;
+        : <div class="popup-detail text-muted"><em><i class="fas fa-image"></i> No image available</em></div>;
 
       const financialHtml = data.hasFinancials
         ? `
@@ -894,7 +894,7 @@
       listDiv.innerHTML = "";
 
       if (!filtered.length) {
-        listDiv.innerHTML = `<div class="text-center text-muted p-3">No matched properties found.</div>`;
+        listDiv.innerHTML = <div class="text-center text-muted p-3">No matched properties found.</div>;
         return;
       }
 
@@ -941,8 +941,8 @@
       const blocks = [...new Set(joinedFeatures.filter(x => x.matched).map(x => x.block).filter(Boolean))].sort();
       const landuses = [...new Set(joinedFeatures.filter(x => x.matched).map(x => x.landuse).filter(Boolean))].sort();
 
-      blockSelect.innerHTML = `<option value="">All Blocks</option>` + blocks.map(v => `<option value="${v}">${v}</option>`).join("");
-      landuseSelect.innerHTML = `<option value="">All Landuse</option>` + landuses.map(v => `<option value="${v}">${v}</option>`).join("");
+      blockSelect.innerHTML = <option value="">All Blocks</option> + blocks.map(v => <option value="${v}">${v}</option>).join("");
+      landuseSelect.innerHTML = <option value="">All Landuse</option> + landuses.map(v => <option value="${v}">${v}</option>).join("");
     }
 
     function refreshDashboard(keepView = true) {
@@ -971,7 +971,7 @@
       const statusBox = document.getElementById("loadStatus");
 
       try {
-        statusBox.innerHTML = `Loading <strong>data.csv</strong> and <strong>JSONN.json</strong> automatically...`;
+        statusBox.innerHTML = Loading <strong>data.csv</strong> and <strong>JSONN.json</strong> automatically...;
 
         const [csvResponse, jsonResponse] = await Promise.all([
           fetch("./data.csv", { cache: "no-store" }),
@@ -979,11 +979,11 @@
         ]);
 
         if (!csvResponse.ok) {
-          throw new Error(`Could not load data.csv (${csvResponse.status})`);
+          throw new Error(Could not load data.csv (${csvResponse.status}));
         }
 
         if (!jsonResponse.ok) {
-          throw new Error(`Could not load JSONN.json (${jsonResponse.status})`);
+          throw new Error(Could not load JSONN.json (${jsonResponse.status}));
         }
 
         const csvText = await csvResponse.text();
@@ -1002,7 +1002,7 @@
         hasInitialFit = false;
         refreshDashboard(false);
 
-        statusBox.innerHTML = `✅ Dashboard loaded automatically from <strong>data.csv</strong> and <strong>JSONN.json</strong>.`;
+        statusBox.innerHTML = ✅ Dashboard loaded automatically from <strong>data.csv</strong> and <strong>JSONN.json</strong>.;
       } catch (err) {
         console.error(err);
         statusBox.className = "error-box";
@@ -1014,7 +1014,7 @@
           <br><strong>data.csv</strong>
           <br><strong>JSONN.json</strong>
         `;
-        document.getElementById("propertyList").innerHTML = `<div class="text-center text-danger p-3">Could not load dashboard files.</div>`;
+        document.getElementById("propertyList").innerHTML = <div class="text-center text-danger p-3">Could not load dashboard files.</div>;
       }
     }
 
