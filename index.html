@@ -81,7 +81,7 @@
       color: #3498db;
     }
 
-    .file-actions, .filter-grid {
+    .filter-grid {
       display: grid;
       gap: 10px;
     }
@@ -282,6 +282,20 @@
       color: #888;
     }
 
+    .loading-box, .error-box {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 13px;
+      color: #444;
+    }
+
+    .error-box {
+      background: #fff1f0;
+      color: #b42318;
+      border: 1px solid #f5c2c7;
+    }
+
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: #f1f1f1; }
     ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
@@ -291,20 +305,16 @@
 <body>
   <div class="dashboard-header">
     <h1><i class="fas fa-building"></i> AIT Illegal Commercial Properties Dashboard</h1>
-    <p><i class="fas fa-map-marker-alt"></i> CSV + GeoJSON Mapping | Financial Analysis | Status Tracking</p>
+    <p><i class="fas fa-map-marker-alt"></i> Auto-loaded CSV + GeoJSON Mapping | Financial Analysis | Status Tracking</p>
   </div>
 
   <div class="main-container">
     <div class="sidebar">
       <div class="sidebar-section">
-        <h3><i class="fas fa-folder-open"></i> Load Files</h3>
-        <div class="file-actions">
-          <input id="csvFile" type="file" accept=".csv" class="form-control" />
-          <input id="jsonFile" type="file" accept=".json,.geojson" class="form-control" />
-          <button class="btn btn-primary" id="loadBtn"><i class="fas fa-upload"></i> Load Dashboard Data</button>
-          <button class="btn btn-outline-secondary" id="resetBtn"><i class="fas fa-undo"></i> Reset Filters</button>
+        <h3><i class="fas fa-cloud-download-alt"></i> Data Status</h3>
+        <div id="loadStatus" class="loading-box">
+          Loading <strong>data.csv</strong> and <strong>JSONN.json</strong> automatically...
         </div>
-        <div class="note-small">Select your <strong>data.csv</strong> and <strong>JSONN.json</strong>, then click Load Dashboard Data.</div>
       </div>
 
       <div class="sidebar-section">
@@ -317,6 +327,7 @@
           <select id="landuseFilter" class="form-select">
             <option value="">All Landuse</option>
           </select>
+          <button class="btn btn-outline-secondary" id="resetBtn"><i class="fas fa-undo"></i> Reset Filters</button>
         </div>
       </div>
 
@@ -378,7 +389,7 @@
       <div class="sidebar-section">
         <h3><i class="fas fa-list"></i> Property List <small style="font-size:11px;">(Click to locate)</small></h3>
         <div class="property-list" id="propertyList">
-          <div class="text-center text-muted p-3">Load files to see properties.</div>
+          <div class="text-center text-muted p-3">Loading properties...</div>
         </div>
       </div>
     </div>
@@ -507,16 +518,8 @@
       return safeText(props.PICTURES || props.picture || props.image);
     }
 
-    async function parseCSV(file) {
-      const buffer = await file.arrayBuffer();
-
-      let workbook;
-      try {
-        workbook = XLSX.read(buffer, { type: "array", codepage: 1252 });
-      } catch (e) {
-        workbook = XLSX.read(buffer, { type: "array" });
-      }
-
+    function parseCSVText(csvText) {
+      const workbook = XLSX.read(csvText, { type: "string" });
       const ws = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
@@ -551,17 +554,6 @@
           return record;
         })
         .filter(r => r.block || r.plot || r.csvKey);
-    }
-
-    async function parseGeoJSON(file) {
-      const text = await file.text();
-      const data = JSON.parse(text);
-
-      if (!data || data.type !== "FeatureCollection" || !Array.isArray(data.features)) {
-        throw new Error("Invalid GeoJSON/JSON file.");
-      }
-
-      return data;
     }
 
     function buildJoinedData() {
@@ -975,18 +967,34 @@
       modal.show();
     }
 
-    document.getElementById("loadBtn").addEventListener("click", async () => {
-      try {
-        const csvFile = document.getElementById("csvFile").files[0];
-        const jsonFile = document.getElementById("jsonFile").files[0];
+    async function loadDefaultFiles() {
+      const statusBox = document.getElementById("loadStatus");
 
-        if (!csvFile || !jsonFile) {
-          alert("Please select both CSV file and JSON file.");
-          return;
+      try {
+        statusBox.innerHTML = `Loading <strong>data.csv</strong> and <strong>JSONN.json</strong> automatically...`;
+
+        const [csvResponse, jsonResponse] = await Promise.all([
+          fetch("./data.csv", { cache: "no-store" }),
+          fetch("./JSONN.json", { cache: "no-store" })
+        ]);
+
+        if (!csvResponse.ok) {
+          throw new Error(`Could not load data.csv (${csvResponse.status})`);
         }
 
-        rawCsvRows = await parseCSV(csvFile);
-        geoJsonData = await parseGeoJSON(jsonFile);
+        if (!jsonResponse.ok) {
+          throw new Error(`Could not load JSONN.json (${jsonResponse.status})`);
+        }
+
+        const csvText = await csvResponse.text();
+        const jsonData = await jsonResponse.json();
+
+        rawCsvRows = parseCSVText(csvText);
+        geoJsonData = jsonData;
+
+        if (!geoJsonData || geoJsonData.type !== "FeatureCollection" || !Array.isArray(geoJsonData.features)) {
+          throw new Error("JSONN.json is not a valid GeoJSON FeatureCollection.");
+        }
 
         buildJoinedData();
         populateFilters();
@@ -994,11 +1002,21 @@
         hasInitialFit = false;
         refreshDashboard(false);
 
+        statusBox.innerHTML = `✅ Dashboard loaded automatically from <strong>data.csv</strong> and <strong>JSONN.json</strong>.`;
       } catch (err) {
         console.error(err);
-        alert("Error loading files: " + err.message);
+        statusBox.className = "error-box";
+        statusBox.innerHTML = `
+          <strong>Auto-load failed.</strong><br>
+          ${err.message}<br><br>
+          Make sure these files exist in the same GitHub repository:
+          <br><strong>index.html</strong>
+          <br><strong>data.csv</strong>
+          <br><strong>JSONN.json</strong>
+        `;
+        document.getElementById("propertyList").innerHTML = `<div class="text-center text-danger p-3">Could not load dashboard files.</div>`;
       }
-    });
+    }
 
     document.getElementById("resetBtn").addEventListener("click", resetFilters);
     document.getElementById("blockFilter").addEventListener("change", () => { activePropertyKey = null; refreshDashboard(false); });
@@ -1006,6 +1024,7 @@
     document.getElementById("searchInput").addEventListener("input", () => { activePropertyKey = null; refreshDashboard(false); });
 
     window.showImageModal = showImageModal;
+    window.addEventListener("load", loadDefaultFiles);
   </script>
 </body>
 </html>
